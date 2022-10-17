@@ -24,7 +24,7 @@ int Chunker::chunkFolder(std::string folderpath, Chunker::CompressionType compre
 
 	unsigned char nullchar = 0x00;
 
-	std::ofstream outfile("outputchunk", std::ios::binary);
+	std::fstream outfile("outputchunk", std::ios::out | std::ios::in | std::ios::binary);
 
 	// Write header
 	const char* header = "SHADOW";
@@ -70,29 +70,20 @@ int Chunker::chunkFolder(std::string folderpath, Chunker::CompressionType compre
 		iteratedFile.close();
 	}
 
-	outfile.close();
 
 	std::cout << std::endl;
 
 	// Overwrite the 4 bytes at 0x00000006 that stores the size
 	// of the header + TOC
 	
-	std::cout << "Overwriting internal filesize data";
+	std::cout << "Overwriting internal filesize data" << std::endl;
 
-	std::ifstream outfileforreading("outputchunk");
-	std::stringstream offrss;
-	offrss << outfileforreading.rdbuf();
-	std::string offrdata = offrss.str();
-	uint32_t offrsizetowrite = (uint32_t) offrdata.size();
-	outfileforreading.close();
+	// Seek to end to get file size
+	outfile.seekg(0, std::ios::end);
+	uint32_t offrsizetowrite = outfile.tellg();
 
-	// Open a new writing handle to the outfile
-	
-	std::ofstream outfilestage2("outputchunk", std::ios::binary);
-	// TODO: Use seekg here instead of seekp??
-	outfilestage2.seekp(6);
-	outfilestage2.write((char*)&offrsizetowrite, sizeof(offrsizetowrite));
-	outfilestage2.close();
+	outfile.seekg(6);
+	outfile.write((char*)&offrsizetowrite, sizeof(offrsizetowrite));
 
 	// Use stage2 file handle if possible using file.seekg(0, std::ios::end)
 	
@@ -121,6 +112,8 @@ int Chunker::chunkFolder(std::string folderpath, Chunker::CompressionType compre
 
 
 	outfilestage3.close();*/
+
+	outfile.close();
 
 	folderToChunk.close();
 
