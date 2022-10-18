@@ -6,7 +6,19 @@
 #include <sstream>
 #include <cstring>
 
-std::string Chunker::simpleRead() { return ""; }
+void Chunker::simpleRead(const char* inputfile, const char* innerfile) {
+	std::ifstream file(inputfile, std::ios::binary | std::ios::in);
+	if (!file) { std::cerr << "Unable to open file" << std::endl; return; }
+
+	file.seekg(0);
+	char headerVerificationBuffer[6];
+	file.read(headerVerificationBuffer, 6);
+
+	if (strcmp(headerVerificationBuffer, "SHADOW") != 0) {
+		std::cerr << "Header doesn't match, this isn't a Chunker file!" << std::endl;
+		return;
+	}
+}
 
 // The header is "SHADOW"
 //
@@ -24,11 +36,14 @@ int Chunker::chunkFolder(std::string folderpath, Chunker::CompressionType compre
 
 	unsigned char nullchar = 0x00;
 
-	std::fstream outfile("outputchunk", std::ios::out | std::ios::in | std::ios::binary);
+	std::fstream outfile("outputchunk", std::ios::trunc | std::ios::out | std::ios::in | std::ios::binary);
 
 	// Write header
 	const char* header = "SHADOW";
 	outfile.write(header, strlen(header));
+
+	// Write type of compression used, stored as an unsigned 8-bit number (1 byte in size)
+	outfile.write((char*)&compression, sizeof(compression));
 
 	// Write chunk filesize template
 	outfile.write((char*)&nullchar, sizeof(nullchar));
@@ -73,21 +88,19 @@ int Chunker::chunkFolder(std::string folderpath, Chunker::CompressionType compre
 
 	std::cout << std::endl;
 
-	// Overwrite the 4 bytes at 0x00000006 that stores the size
+	// Overwrite the 4 bytes at 0x00000007 that stores the size
 	// of the header + TOC
-	
+
 	std::cout << "Overwriting internal filesize data" << std::endl;
 
 	// Seek to end to get file size
 	outfile.seekg(0, std::ios::end);
 	uint32_t offrsizetowrite = outfile.tellg();
 
-	outfile.seekg(6);
+	outfile.seekg(7);
 	outfile.write((char*)&offrsizetowrite, sizeof(offrsizetowrite));
 
 	// Use stage2 file handle if possible using file.seekg(0, std::ios::end)
-	
-	/*std::ofstream outfilestage3("outputchunk", std::ios::binary);
 
 	std::cout << std::endl;
 
@@ -103,15 +116,14 @@ int Chunker::chunkFolder(std::string folderpath, Chunker::CompressionType compre
 		ss << iteratedFile.rdbuf();
 		std::string fileData = ss.str();
 
+		outfile.seekg(0, std::ios::end);
 		// Use << because data can contain nullchars
-		outfilestage3 << fileData;
+		outfile << fileData;
 
 
 		iteratedFile.close();
 	}
 
-
-	outfilestage3.close();*/
 
 	outfile.close();
 

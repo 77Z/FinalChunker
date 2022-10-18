@@ -4,12 +4,13 @@
 
 namespace Chunker {
 
-	enum CompressionType {
-		None,
-		LZ4
+	enum CompressionType : uint8_t {
+		None = 0,
+		LZ4 = 1,
+		Snappy = 2
 	};
 
-	std::string simpleRead();
+	void simpleRead(const char* inputfile, const char* innerfile);
 	int chunkFolder(std::string folderpath, CompressionType compression);
 
 }

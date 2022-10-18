@@ -11,6 +11,7 @@ int main(int argc, char** argv) {
 			<< "No command given" << std::endl
 			<< std::endl
 			<< "c: compile a folder into an LZ4 Compressed Chunk" << std::endl
+			<< "s: compile a folder into a  Snappy Compressed Chunk" << std::endl
 			<< "u: compile a folder into an uncompressed Chunk" << std::endl
 			<< std::endl
 			<< "example: " << argv[0] << " c inputfolder" << std::endl;
@@ -19,12 +20,16 @@ int main(int argc, char** argv) {
 
 	if (strcmp(argv[1], "c") == 0) {
 		std::cout << "Compiling folder [LZ4]: " << argv[2] << std::endl;
+		status = Chunker::chunkFolder(argv[2], Chunker::CompressionType::LZ4);
+	} else if (strcmp(argv[1], "s") == 0) {
+		std::cout << "Compiling folder [SNAPPY]: " << argv[2] << std::endl;
+		status = Chunker::chunkFolder(argv[2], Chunker::CompressionType::Snappy);
 	} else if (strcmp(argv[1], "u") == 0) {
 		std::cout << "Compiling folder [RAW]: " << argv[2] << std::endl;
-		status = Chunker::chunkFolder(argv[2], Chunker::None);
+		status = Chunker::chunkFolder(argv[2], Chunker::CompressionType::None);
 	} else if (strcmp(argv[1], "r") == 0) {
 		std::cout << "Reading simple" << std::endl;
-		Chunker::simpleRead();
+		Chunker::simpleRead(argv[2], "");
 	} else {
 		std::cerr << "Unknown command: " << argv[1] << std::endl;
 		return 1;
