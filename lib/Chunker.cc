@@ -5,19 +5,31 @@
 #include <filesystem>
 #include <sstream>
 #include <cstring>
+#include "lz4.h"
 
 void Chunker::simpleRead(const char* inputfile, const char* innerfile) {
 	std::ifstream file(inputfile, std::ios::binary | std::ios::in);
 	if (!file) { std::cerr << "Unable to open file" << std::endl; return; }
 
+	// Make sure header is correct
 	file.seekg(0);
 	char headerVerificationBuffer[6];
 	file.read(headerVerificationBuffer, 6);
-
 	if (strcmp(headerVerificationBuffer, "SHADOW") != 0) {
 		std::cerr << "Header doesn't match, this isn't a Chunker file!" << std::endl;
 		return;
 	}
+	
+	// Detect what kind of compression is used
+	file.seekg(6);
+	char compressionchar[1];
+	file.read(compressionchar, 1);
+	Chunker::CompressionType compression = (Chunker::CompressionType) compressionchar[0];
+	// Can't print this, because it's literally 0x00
+	//std::cout << "Using compression type: " << compression << std::endl;
+	
+
+	std::cout << LZ4_versionString() << std::endl;
 }
 
 // The header is "SHADOW"
