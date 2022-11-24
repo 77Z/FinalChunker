@@ -19,7 +19,7 @@ void Chunker::simpleRead(const char* inputfile, const char* innerfile) {
 		std::cerr << "Header doesn't match, this isn't a Chunker file!" << std::endl;
 		return;
 	}
-	
+
 	// Detect what kind of compression is used
 	file.seekg(6);
 	char compressionchar[1];
@@ -27,7 +27,7 @@ void Chunker::simpleRead(const char* inputfile, const char* innerfile) {
 	Chunker::CompressionType compression = (Chunker::CompressionType) compressionchar[0];
 	// Can't print this, because it's literally 0x00
 	//std::cout << "Using compression type: " << compression << std::endl;
-	
+
 
 	std::cout << LZ4_versionString() << std::endl;
 }
