@@ -10,6 +10,15 @@ namespace Chunker {
 		Snappy = 2
 	};
 
+	inline std::string CompressionTypeToString(CompressionType compressionType) {
+		switch(compressionType) {
+			case None: return "None";
+			case LZ4: return "LZ4";
+			case Snappy: return "Snappy";
+			default: return "WHAT";
+		}
+	}
+
 	void simpleRead(const char* inputfile, const char* innerfile);
 	int chunkFolder(std::string folderpath, CompressionType compression);
 

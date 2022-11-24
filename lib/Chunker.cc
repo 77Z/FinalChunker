@@ -25,8 +25,7 @@ void Chunker::simpleRead(const char* inputfile, const char* innerfile) {
 	char compressionchar[1];
 	file.read(compressionchar, 1);
 	Chunker::CompressionType compression = (Chunker::CompressionType) compressionchar[0];
-	// Can't print this, because it's literally 0x00
-	//std::cout << "Using compression type: " << compression << std::endl;
+	std::cout << "Using compression type: " << CompressionTypeToString(compression) << std::endl;
 
 
 	std::cout << LZ4_versionString() << std::endl;
