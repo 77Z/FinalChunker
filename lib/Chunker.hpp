@@ -19,6 +19,7 @@ namespace Chunker {
 		}
 	}
 
+	void listFiles(const char* inputfile);
 	void simpleRead(const char* inputfile, const char* innerfile);
 	int chunkFolder(std::string folderpath, CompressionType compression);
 

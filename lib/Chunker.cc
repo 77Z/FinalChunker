@@ -1,4 +1,10 @@
+// Copyright (c) 77Z 2022
+// Most of this code will make no sense if you dont look
+// at the diagram: "Chunker File Format.png" SO GO LOOK!
+
 #include "Chunker.hpp"
+#include <cstdint>
+#include <cstdio>
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -6,6 +12,40 @@
 #include <sstream>
 #include <cstring>
 #include "lz4.h"
+
+// Lists all files in a chunkfile
+void Chunker::listFiles(const char* inputfile) {
+	std::ifstream file(inputfile, std::ios::binary | std::ios::in);
+	if (!file) { std::cerr << "Unable to open file" << std::endl; return; }
+
+	// Make sure header is correct
+	file.seekg(0);
+	char headerVerificationBuffer[6];
+	file.read(headerVerificationBuffer, 6);
+	if (strcmp(headerVerificationBuffer, "SHADOW") != 0) {
+		std::cerr << "Header doesn't match, this isn't a Chunker file!" << std::endl;
+		return;
+	}
+
+	// Get "Internal Filesize" (see diagram)
+	// Internal Filesize is stored at 0x00000007, 4 bytes long, and is uint32_t
+	file.seekg(7);
+	char buffer[4];
+	file.read(buffer, 4);
+	uint32_t internalFilesize = *(uint32_t*)&buffer; // Pointer Sorcery
+	std::cout << "Internal Filesize: " << internalFilesize << std::endl;
+
+	file.seekg(internalFilesize);
+	char buf[1]; // FIXME TODO THIS DON'T WORK
+	while (buf[0] != '\0') {
+
+		std::cout << buf[0] << std::endl;
+
+		file.read(buf, 1);
+	}
+
+	
+}
 
 void Chunker::simpleRead(const char* inputfile, const char* innerfile) {
 	std::ifstream file(inputfile, std::ios::binary | std::ios::in);
@@ -27,8 +67,21 @@ void Chunker::simpleRead(const char* inputfile, const char* innerfile) {
 	Chunker::CompressionType compression = (Chunker::CompressionType) compressionchar[0];
 	std::cout << "Using compression type: " << CompressionTypeToString(compression) << std::endl;
 
+	std::cout << "Using LZ4 Version " << LZ4_versionString() << std::endl;
 
-	std::cout << LZ4_versionString() << std::endl;
+	// Get "Internal Filesize" (see diagram)
+	// Internal Filesize is stored at 0x00000007, 4 bytes long, and is uint32_t
+	file.seekg(7);
+	char buffer[4];
+	file.read(buffer, 4);
+	uint32_t internalFilesize = *(uint32_t*)&buffer; // Pointer Sorcery
+	std::cout << "Internal Filesize: " << internalFilesize << std::endl;
+
+	// Test Read
+	file.seekg(internalFilesize);
+	char testBuffer[10];
+	file.read(testBuffer, 10);
+	std::cout << testBuffer << std::endl;
 }
 
 // The header is "SHADOW"

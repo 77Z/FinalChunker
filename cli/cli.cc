@@ -30,6 +30,8 @@ int main(int argc, char** argv) {
 	} else if (strcmp(argv[1], "r") == 0) {
 		std::cout << "Reading simple" << std::endl;
 		Chunker::simpleRead(argv[2], "");
+	} else if (strcmp(argv[1], "l") == 0) {
+		Chunker::listFiles(argv[2]);
 	} else {
 		std::cerr << "Unknown command: " << argv[1] << std::endl;
 		return 1;
