@@ -3,6 +3,7 @@
 // at the diagram: "Chunker File Format.png" SO GO LOOK!
 
 #include "Chunker.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -35,16 +36,33 @@ void Chunker::listFiles(const char* inputfile) {
 	uint32_t internalFilesize = *(uint32_t*)&buffer; // Pointer Sorcery
 	std::cout << "Internal Filesize: " << internalFilesize << std::endl;
 
-	file.seekg(internalFilesize);
-	char buf[1]; // FIXME TODO THIS DON'T WORK
-	while (buf[0] != '\0') {
+	// Testing: Read the first filename
 
-		std::cout << buf[0] << std::endl;
+	file.seekg(11);
 
-		file.read(buf, 1);
+	while (file.tellg() < internalFilesize) {
+
+		char filenameSizeBuffer[4];
+		file.read(filenameSizeBuffer, 4);
+		uint32_t filenameSize = *(uint32_t*)&filenameSizeBuffer; // Pointer Sorcery
+		std::string filename;
+		filename.resize(filenameSize);
+		file.read(&filename[0], filenameSize);
+		std::cout << "Filename: " << filename;
+
+		char internalFileOffsetBuffer[4];
+		file.read(internalFileOffsetBuffer, 4);
+		uint32_t internalFileOffset = *(uint32_t*)&internalFileOffsetBuffer;
+		std::cout << ", Offset: " << internalFileOffset;
+
+		// Yeah I suck at naming things
+		char internalFileSpaceBuffer[4];
+		file.read(internalFileSpaceBuffer, 4);
+		uint32_t internalFileSpace = *(uint32_t*)&internalFileSpaceBuffer;
+		std::cout << ", Size: " << internalFileSpace << std::endl;
+
 	}
 
-	
 }
 
 void Chunker::simpleRead(const char* inputfile, const char* innerfile) {
@@ -131,9 +149,16 @@ int Chunker::chunkFolder(std::string folderpath, Chunker::CompressionType compre
 		// We loaded the file to get its size
 
 		// Write filename (Terminates at \0)
-		const char* filename = fileNameStr.c_str();
-		outfile.write(filename, strlen(filename));
-		outfile.write((char*)&nullchar, sizeof(nullchar));
+		//const char* filename = fileNameStr.c_str();
+		//outfile.write(filename, strlen(filename));
+		//outfile.write((char*)&nullchar, sizeof(nullchar));
+
+		// Write filename, stating the size of the string beforehand, as a uint32_t
+		// This would be a size_t, but I struggle to read those for some reason
+		uint32_t filenameSize = fileNameStr.size();
+		std::cout << filenameSize << std::endl;
+		outfile.write((char*)&filenameSize, sizeof(filenameSize));
+		outfile.write(fileNameStr.c_str(), filenameSize);
 
 		// Write offset as an unsigned 32-bit number (4 bytes in size)
 		outfile.write((char*)&offset, sizeof(offset));
