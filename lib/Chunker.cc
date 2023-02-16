@@ -6,111 +6,18 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <exception>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <fstream>
 #include <filesystem>
 #include <sstream>
 #include <cstring>
+#include <unordered_map>
+#include <vector>
 #include "lz4.h"
-
-// Lists all files in a chunkfile
-void Chunker::listFiles(const char* inputfile) {
-	std::ifstream file(inputfile, std::ios::binary | std::ios::in);
-	if (!file) { std::cerr << "Unable to open file" << std::endl; return; }
-
-	// Make sure header is correct
-	file.seekg(0);
-	char headerVerificationBuffer[6];
-	file.read(headerVerificationBuffer, 6);
-	if (strcmp(headerVerificationBuffer, "SHADOW") != 0) {
-		std::cerr << "Header doesn't match, this isn't a Chunker file!" << std::endl;
-		return;
-	}
-
-	// Get "Internal Filesize" (see diagram)
-	// Internal Filesize is stored at 0x00000007, 4 bytes long, and is uint32_t
-	file.seekg(7);
-	char buffer[4];
-	file.read(buffer, 4);
-	uint32_t internalFilesize = *(uint32_t*)&buffer; // Pointer Sorcery
-	std::cout << "Internal Filesize: " << internalFilesize << std::endl;
-
-	// Testing: Read the first filename
-
-	file.seekg(11);
-
-	while (file.tellg() < internalFilesize) {
-
-		char filenameSizeBuffer[4];
-		file.read(filenameSizeBuffer, 4);
-		uint32_t filenameSize = *(uint32_t*)&filenameSizeBuffer; // Pointer Sorcery
-		std::string filename;
-		filename.resize(filenameSize);
-		file.read(&filename[0], filenameSize);
-		std::cout << "Filename: " << filename;
-
-		char internalFileOffsetBuffer[4];
-		file.read(internalFileOffsetBuffer, 4);
-		uint32_t internalFileOffset = *(uint32_t*)&internalFileOffsetBuffer;
-		std::cout << ", Offset: " << internalFileOffset;
-
-		// Yeah I suck at naming things
-		char internalFileSpaceBuffer[4];
-		file.read(internalFileSpaceBuffer, 4);
-		uint32_t internalFileSpace = *(uint32_t*)&internalFileSpaceBuffer;
-		std::cout << ", Size: " << internalFileSpace << std::endl;
-
-	}
-
-}
-
-void Chunker::simpleRead(const char* inputfile, const char* innerfile) {
-	std::ifstream file(inputfile, std::ios::binary | std::ios::in);
-	if (!file) { std::cerr << "Unable to open file" << std::endl; return; }
-
-	// Make sure header is correct
-	file.seekg(0);
-	char headerVerificationBuffer[6];
-	file.read(headerVerificationBuffer, 6);
-	if (strcmp(headerVerificationBuffer, "SHADOW") != 0) {
-		std::cerr << "Header doesn't match, this isn't a Chunker file!" << std::endl;
-		return;
-	}
-
-	// Detect what kind of compression is used
-	file.seekg(6);
-	char compressionchar[1];
-	file.read(compressionchar, 1);
-	Chunker::CompressionType compression = (Chunker::CompressionType) compressionchar[0];
-	std::cout << "Using compression type: " << CompressionTypeToString(compression) << std::endl;
-
-	std::cout << "Using LZ4 Version " << LZ4_versionString() << std::endl;
-
-	// Get "Internal Filesize" (see diagram)
-	// Internal Filesize is stored at 0x00000007, 4 bytes long, and is uint32_t
-	file.seekg(7);
-	char buffer[4];
-	file.read(buffer, 4);
-	uint32_t internalFilesize = *(uint32_t*)&buffer; // Pointer Sorcery
-	std::cout << "Internal Filesize: " << internalFilesize << std::endl;
-
-	// Test Read
-	file.seekg(internalFilesize);
-	char testBuffer[10];
-	file.read(testBuffer, 10);
-	std::cout << testBuffer << std::endl;
-}
-
-// The header is "SHADOW"
-//
-// The Table of Contents Section (a.k.a the TOC Section) is stored
-// right after the header and contains the offsets and file sizes of
-// every file.
-//
-// The Data Section is stored right after the TOC Section and contains
-// nothing but a blob of all the file data.
-// The write cursor/offset is equal to 0 where the data section starts
+#include "Logger.h"
 
 int Chunker::chunkFolder(std::string folderpath, Chunker::CompressionType compression) {
 	std::ifstream folderToChunk(folderpath);
@@ -219,4 +126,88 @@ int Chunker::chunkFolder(std::string folderpath, Chunker::CompressionType compre
 	folderToChunk.close();
 
 	return 0;
+}
+
+Chunker::FileIndex Chunker::indexChunk(const char* inputfile) {
+	std::ifstream file(inputfile, std::ios::binary | std::ios::in);
+	if (!file) throw std::runtime_error("Unable to open file");
+
+	// Make sure header is correct
+	file.seekg(0);
+	char headerVerificationBuffer[6];
+	file.read(headerVerificationBuffer, 6);
+	if (strcmp(headerVerificationBuffer, "SHADOW") != 0)
+		throw std::runtime_error("Header doesn't match, this isn't a Chunker file!");
+	
+	Chunker::FileIndex fileIndex;
+	fileIndex.filename = inputfile;
+
+	// Detect what kind of compression is used
+	file.seekg(6);
+	char compressionchar[1];
+	file.read(compressionchar, 1);
+	Chunker::CompressionType compression = (Chunker::CompressionType) compressionchar[0];
+	PRINT("Using compression type: %s", CompressionTypeToString(compression).c_str());
+	fileIndex.compression = compression;
+
+	// Get "Internal Filesize" (see diagram)
+	// Internal Filesize is stored at 0x00000007, 4 bytes long, and is uint32_t
+	file.seekg(7);
+	char buffer[4];
+	file.read(buffer, 4);
+	uint32_t internalFilesize = *(uint32_t*)&buffer; // Pointer Sorcery
+	PRINT("Internal Filesize: %i", internalFilesize);
+	fileIndex.internalFilesize = internalFilesize;
+
+	// Jump to 11 to read the table of contents
+	file.seekg(11);
+
+	PRINT("Indexing files...");
+	while (file.tellg() < internalFilesize) {
+
+		char filenameSizeBuffer[4];
+		file.read(filenameSizeBuffer, 4);
+		uint32_t filenameSize = *(uint32_t*)&filenameSizeBuffer; // Pointer Sorcery
+		std::string filename;
+		filename.resize(filenameSize);
+		file.read(&filename[0], filenameSize);
+
+		char internalFileOffsetBuffer[4];
+		file.read(internalFileOffsetBuffer, 4);
+		uint32_t internalFileOffset = *(uint32_t*)&internalFileOffsetBuffer;
+
+		// Yeah I suck at naming things
+		char internalFileSpaceBuffer[4];
+		file.read(internalFileSpaceBuffer, 4);
+		uint32_t internalFileSpace = *(uint32_t*)&internalFileSpaceBuffer;
+
+		PRINT("Filename: %s, Offset: %i, Size: %i", filename.c_str(), internalFileOffset, internalFileSpace);
+
+		fileIndex.offsetMap[filename] = internalFileOffset;
+		fileIndex.sizeMap[filename] = internalFileSpace;
+	}
+
+	return fileIndex;
+}
+
+std::vector<char> Chunker::readFile(Chunker::FileIndex fileIndex, const char* innerFile) {
+	std::ifstream file(fileIndex.filename, std::ios::binary | std::ios::in);
+	if (!file) throw std::runtime_error("Unable to open file");
+
+	// Make sure header is correct
+	file.seekg(0);
+	char headerVerificationBuffer[6];
+	file.read(headerVerificationBuffer, 6);
+	if (strcmp(headerVerificationBuffer, "SHADOW") != 0)
+		throw std::runtime_error("Header doesn't match, this isn't a Chunker file!");
+
+	PRINT("Attempting to read %s", innerFile);
+
+	std::vector<char> retBuffer(fileIndex.sizeMap[innerFile]);
+
+	file.seekg(fileIndex.offsetMap[innerFile] + fileIndex.internalFilesize);
+	file.read(retBuffer.data(), retBuffer.size());
+
+	return retBuffer;
+
 }

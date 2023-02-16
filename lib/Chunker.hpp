@@ -1,6 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace Chunker {
 
@@ -19,8 +22,16 @@ namespace Chunker {
 		}
 	}
 
-	void listFiles(const char* inputfile);
-	void simpleRead(const char* inputfile, const char* innerfile);
+	struct FileIndex {
+		const char* filename;
+		Chunker::CompressionType compression;
+		uint32_t internalFilesize;
+		std::unordered_map<std::string, uint32_t> offsetMap;
+		std::unordered_map<std::string, uint32_t> sizeMap;
+	};
+
 	int chunkFolder(std::string folderpath, CompressionType compression);
+	Chunker::FileIndex indexChunk(const char* inputfile);
+	std::vector<char> readFile(Chunker::FileIndex index, const char* innerFile);
 
 }

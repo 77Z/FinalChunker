@@ -28,10 +28,13 @@ int main(int argc, char** argv) {
 		std::cout << "Compiling folder [RAW]: " << argv[2] << std::endl;
 		status = Chunker::chunkFolder(argv[2], Chunker::CompressionType::None);
 	} else if (strcmp(argv[1], "r") == 0) {
-		std::cout << "Reading simple" << std::endl;
-		Chunker::simpleRead(argv[2], "");
+		auto index = Chunker::indexChunk(argv[2]);
+		auto data = Chunker::readFile(index, argv[3]);
+		std::cout << std::string(data.data(), data.size()) << std::endl;
 	} else if (strcmp(argv[1], "l") == 0) {
-		Chunker::listFiles(argv[2]);
+		auto index = Chunker::indexChunk(argv[2]);
+		for (auto item: index.offsetMap)
+			std::cout << item.first << std::endl;
 	} else {
 		std::cerr << "Unknown command: " << argv[1] << std::endl;
 		return 1;
