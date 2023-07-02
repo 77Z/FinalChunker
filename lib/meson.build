@@ -2,16 +2,16 @@ sources = ['Chunker.cc']
 
 #subdir('lz4')
 
-my_lz4 = dependency('liblz4')
+snappy = dependency('snappy')
 
 chunklib = shared_library('chunker',
                         sources,
                         include_directories: inc,
-                        dependencies: [my_lz4],
+                        dependencies: [snappy],
                         install: false)
 staticchunklib = static_library('chunker',
                         sources,
                         include_directories: inc,
-                        dependencies: [my_lz4],
+                        dependencies: [snappy],
                         install: false)
 
